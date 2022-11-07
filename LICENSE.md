@@ -1,6 +1,8 @@
 MIT License
 
 Copyright (c) 2019 XuaTheGrate
+Copyright (c) 2021 CircuitSacul
+Copyright (c) 2022 MoonlightCapital
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

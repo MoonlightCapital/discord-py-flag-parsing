@@ -1,12 +1,16 @@
-This is an alternative to XuaTheGrate/Flag-Parsing, which is not maintained.
+# Disclaimer: this is a quick fix to get the library to work on Discord.py v2
 
-For support, please join https://discord.gg/dGAzZDaTS9.
+The changes made have not been tested exclusively as I made this module to upgrade my Discord.py version and maintain flags. Use at your own risk (taking pull requests and issues though). Parts of the code were directly copy-pasted from the core Discord.py.
+
+This is an alternative to CircuitSacul/Flag-Parsing, which is not maintained.
 
 # Flag Parsing
+
 A util for discord.py bots that allow passing flags into commands.
 
 To install, run the following command:
-```
+
+```sh
 pip install alt-discord-flags
 ```
 
@@ -40,6 +44,7 @@ decorators.
 to keep things simple.
 
 Subcommands are just as simple:
+
 ```python
 @commands.group()
 async def my_group(ctx):
@@ -53,6 +58,7 @@ async def my_subcommand(ctx, **flags):
 
 Usage of discord.py's `consume rest` behaviour is not perfect with `discord-flags`,
 meaning that you have to use a flag workaround:
+
 ```python
 @flags.add_flag("message", nargs="+")
 @flags.command()

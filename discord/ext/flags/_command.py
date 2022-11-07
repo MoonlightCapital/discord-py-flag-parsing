@@ -7,12 +7,35 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import converter
 
+from typing import List
+
 from . import _parser
 
 __all__ = ["add_flag", "command", "group", "FlagCommand", "FlagGroup"]
 
 
 argument = namedtuple("argument", "args kwargs")
+
+# taken from discord.py (MIT license)
+class _AttachmentIterator:
+    def __init__(self, data: List[discord.Attachment]):
+        self.data: List[discord.Attachment] = data
+        self.index: int = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> discord.Attachment:
+        try:
+            value = self.data[self.index]
+        except IndexError:
+            raise StopIteration
+        else:
+            self.index += 1
+            return value
+
+    def is_empty(self) -> bool:
+        return self.index >= len(self.data)
 
 
 def command(**kwargs):
@@ -161,34 +184,20 @@ class FlagCommand(commands.Command):
 
         return ' '.join(to_append)
 
-    async def _parse_arguments(self, ctx):
+    async def _parse_arguments(self, ctx) -> None:
         ctx.args = [ctx] if self.cog is None else [self.cog, ctx]
         ctx.kwargs = {}
         args = ctx.args
         kwargs = ctx.kwargs
+        attachments = _AttachmentIterator(ctx.message.attachments)
 
         view = ctx.view
         iterator = iter(self.params.items())
-
-        if self.cog is not None:
-            # we have 'self' as the first parameter so just advance
-            # the iterator and resume parsing
-            try:
-                next(iterator)
-            except StopIteration:
-                fmt = 'Callback for {0.name} command is missing "self" parameter.'
-                raise discord.ClientException(fmt.format(self))
-
-        # next we have the 'ctx' as the next parameter
-        try:
-            next(iterator)
-        except StopIteration:
-            fmt = 'Callback for {0.name} command is missing "ctx" parameter.'
-            raise discord.ClientException(fmt.format(self))
-
+        
         for name, param in iterator:
-            if param.kind == param.POSITIONAL_OR_KEYWORD:
-                transformed = await self.transform(ctx, param)
+            ctx.current_parameter = param
+            if param.kind in (param.POSITIONAL_OR_KEYWORD, param.POSITIONAL_ONLY):
+                transformed = await self.transform(ctx, param, attachments)
                 args.append(transformed)
             elif param.kind == param.KEYWORD_ONLY:
                 # kwarg only param denotes "consume rest" semantics
@@ -197,12 +206,14 @@ class FlagCommand(commands.Command):
                     argument = view.read_rest()
                     kwargs[name] = await self.do_conversion(ctx, converter, argument, param)
                 else:
-                    kwargs[name] = await self.transform(ctx, param)
+                    kwargs[name] = await self.transform(ctx, param, attachments)
                 break
             elif param.kind == param.VAR_POSITIONAL:
+                """if view.eof and self.require_var_positional:
+                    raise MissingRequiredArgument(param)"""
                 while not view.eof:
                     try:
-                        transformed = await self.transform(ctx, param)
+                        transformed = await self.transform(ctx, param, attachments)
                         args.append(transformed)
                     except RuntimeError:
                         break
@@ -210,9 +221,8 @@ class FlagCommand(commands.Command):
                 await self._parse_flag_arguments(ctx)
                 break
 
-        if not self.ignore_extra:
-            if not view.eof:
-                raise commands.TooManyArguments('Too many arguments passed to ' + self.qualified_name)
+        if not self.ignore_extra and not view.eof:
+            raise commands.TooManyArguments('Too many arguments passed to ' + self.qualified_name)
 
 
 class FlagGroup(FlagCommand, commands.Group):
